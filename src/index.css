@@ -1,0 +1,42 @@
+/* Tailwind CSS 기본 설정 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 공공기관 스타일 기본 설정 */
+@layer base {
+  /* 기본 폰트를 깔끔한 산세리프로 설정 */
+  html {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 모바일에서 입력 시 확대 방지 (폰트 16px 이상) */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+/* 커스텀 유틸리티 */
+@layer utilities {
+  /* 카드 호버 효과 */
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
+  }
+}
+
+/* 미입력 업체 섹션 부드러운 강조 애니메이션 */
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.15);
+  }
+}
