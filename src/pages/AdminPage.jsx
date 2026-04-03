@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabase'
 import {
   Download, Search, BarChart3, Loader2, AlertCircle,
   ChevronLeft, ChevronRight, Calendar, ClipboardCopy,
-  CheckCircle2, AlertTriangle, Building2
+  CheckCircle2, AlertTriangle, Building2, MessageCircle
 } from 'lucide-react'
+import { sendAlimtalk } from '../lib/solapi'
 
 export default function AdminPage() {
-  // 오늘 날짜를 기본값으로 설정
-  const today = new Date().toISOString().split('T')[0]
+  // 오늘 날짜를 항상 서울(KST, UTC+9) 기준으로 설정
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const today = kstNow.toISOString().split('T')[0]
 
   const [selectedDate, setSelectedDate] = useState(today)  // 선택한 날짜
   const [reports, setReports] = useState([])                // 보고 데이터
@@ -19,9 +21,11 @@ export default function AdminPage() {
   const [error, setError] = useState(null)                  // 에러 메시지
   const [copiedVendor, setCopiedVendor] = useState(null)    // 복사 완료 표시용
   const [showDatePicker, setShowDatePicker] = useState(false) // 달력 표시 여부
+  const [sendingVendorId, setSendingVendorId] = useState(null) // 알림톡 발송 중인 업체 ID
+  const [toastMessage, setToastMessage] = useState(null) // Toast 알림 상태
   const [calendarMonth, setCalendarMonth] = useState(() => {
-    const d = new Date()
-    return { year: d.getFullYear(), month: d.getMonth() }
+    const d = new Date(Date.now() + 9 * 60 * 60 * 1000) // 서울 기준 시간
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth() }
   })
 
   // 날짜가 바뀔 때마다 데이터 조회
@@ -148,7 +152,7 @@ export default function AdminPage() {
     const date = new Date(selectedDate)
     date.setDate(date.getDate() + days)
     const newDateStr = date.toISOString().split('T')[0]
-    
+
     // 2026-04-01 이전은 선택 불가
     if (newDateStr < '2026-04-01') return
 
@@ -160,8 +164,8 @@ export default function AdminPage() {
   // [오늘] 버튼
   function goToday() {
     setSelectedDate(today)
-    const d = new Date()
-    setCalendarMonth({ year: d.getFullYear(), month: d.getMonth() })
+    const d = new Date(Date.now() + 9 * 60 * 60 * 1000) // 서울 기준 시간
+    setCalendarMonth({ year: d.getUTCFullYear(), month: d.getUTCMonth() })
   }
 
   // 업체별로 데이터 그룹핑
@@ -190,9 +194,8 @@ export default function AdminPage() {
 
   // 요약 텍스트 생성 (업체별 카드 내용을 텍스트로 정리)
   function generateSummaryText(vendorName, group) {
-    const dateStr = new Date(selectedDate).toLocaleDateString('ko-KR', {
-      year: 'numeric', month: 'long', day: 'numeric'
-    })
+    const [y, m, d] = selectedDate.split('-');
+    const dateStr = `${y}년 ${parseInt(m, 10)}월 ${parseInt(d, 10)}일`;
 
     let text = `📋 물가 동향 조사 보고\n`
     text += `━━━━━━━━━━━━━━━━━━\n`
@@ -240,6 +243,52 @@ export default function AdminPage() {
     }
   }
 
+  // 알림톡 발송 처리
+  async function handleSendAlimtalk(vendorInfo) {
+    // allVendors 목록에서 완전한 데이터(phone_number 등 포함)를 찾음
+    const fullVendor = allVendors.find(v => v.id === vendorInfo.id) || vendorInfo;
+    const managerName = fullVendor.manager_name || fullVendor.vendor_name;
+    const phone = fullVendor.manager_phone;
+
+    // 1. 발송 전 확인 창
+    if (!window.confirm(`${managerName} 담당자님께 알림톡을 보내시겠습니까?`)) {
+      return;
+    }
+
+    if (!phone) {
+      showToast(`${fullVendor.vendor_name} 업체의 연락처(phone_number)가 없습니다.`, true);
+      return;
+    }
+
+    // 2. 발송 로직
+    setSendingVendorId(fullVendor.id);
+    try {
+      // url에 들어갈 고유 key (비밀키)
+      const secretKey = fullVendor.secret_key || fullVendor.id;
+      // 로컬 테스트 중에도 스마트폰에서 열릴 수 있도록 실제 동작하는 배포 서버 도메인을 강제 적용합니다.
+      // 템플릿에 https://가 있으므로 이를 제외한 도메인 주소만 넘깁니다.
+      const baseUrl = 'survey-price-trend.pages.dev';
+      const finalUrl = baseUrl + '/input?key=' + secretKey;
+      
+      // 실제 API 호출
+      await sendAlimtalk(phone, finalUrl, fullVendor.vendor_name, managerName);
+      showToast('알림톡이 전송되었습니다.');
+    } catch (err) {
+      console.error(err);
+      showToast(`발송 실패: ${err.message}`, true);
+    } finally {
+      setSendingVendorId(null);
+    }
+  }
+
+  // Toast 띄우기 유틸러티 (3초 후 사라짐)
+  function showToast(message, isError = false) {
+    setToastMessage({ message, isError });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  }
+
   // --- 미니 달력 컴포넌트 ---
   function renderCalendar() {
     const { year, month } = calendarMonth
@@ -272,7 +321,7 @@ export default function AdminPage() {
             setShowDatePicker(false)
           }}
           className={`w-9 h-9 rounded-lg text-sm font-medium transition-all duration-150
-            ${isPastLimit 
+            ${isPastLimit
               ? 'text-slate-300 cursor-not-allowed bg-slate-50'
               : isSelected
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-110'
@@ -356,10 +405,10 @@ export default function AdminPage() {
     ? Math.round((reportedCount / totalVendorCount) * 100)
     : 0
 
-  // 선택한 날짜를 보기 좋게 표시
-  const displayDate = new Date(selectedDate).toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
-  })
+  // 선택한 날짜를 보기 좋게 표시 (브라우저 시간대 영향 방지)
+  const [y, m, d] = selectedDate.split('-');
+  const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const displayDate = `${y}년 ${parseInt(m, 10)}월 ${parseInt(d, 10)}일 ${weekdays[new Date(y, m - 1, d).getDay()]}`;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -517,23 +566,19 @@ export default function AdminPage() {
             </div>
 
             {/* 미입력 */}
-            <div className={`rounded-2xl shadow-sm border p-4 flex items-center gap-3 ${
-              missingVendors.length > 0
+            <div className={`rounded-2xl shadow-sm border p-4 flex items-center gap-3 ${missingVendors.length > 0
                 ? 'bg-red-50 border-red-200'
                 : 'bg-white border-slate-200'
-            }`}>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                missingVendors.length > 0 ? 'bg-red-100' : 'bg-slate-100'
               }`}>
-                <AlertTriangle className={`w-6 h-6 ${
-                  missingVendors.length > 0 ? 'text-red-600' : 'text-slate-400'
-                }`} />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${missingVendors.length > 0 ? 'bg-red-100' : 'bg-slate-100'
+                }`}>
+                <AlertTriangle className={`w-6 h-6 ${missingVendors.length > 0 ? 'text-red-600' : 'text-slate-400'
+                  }`} />
               </div>
               <div>
                 <p className="text-sm text-slate-500">미입력</p>
-                <p className={`text-2xl font-bold ${
-                  missingVendors.length > 0 ? 'text-red-700' : 'text-slate-400'
-                }`}>
+                <p className={`text-2xl font-bold ${missingVendors.length > 0 ? 'text-red-700' : 'text-slate-400'
+                  }`}>
                   {missingVendors.length}
                   {missingVendors.length > 0 && (
                     <span className="text-sm font-medium text-red-500 ml-1">⚠️ 확인필요</span>
@@ -572,11 +617,26 @@ export default function AdminPage() {
                       {v.manager_name || '담당자 미등록'}
                     </p>
                   </div>
-                  {/* 미입력 배지 */}
-                  <span className="ml-auto bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 
-                                   rounded-full whitespace-nowrap animate-pulse">
-                    미입력
-                  </span>
+                  {/* 미입력 배지와 알림톡 버튼 */}
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 
+                                     rounded-full whitespace-nowrap animate-pulse">
+                      미입력
+                    </span>
+                    <button
+                      onClick={() => handleSendAlimtalk(v)}
+                      disabled={sendingVendorId === v.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
+                      title="알림톡 발송"
+                    >
+                      {sendingVendorId === v.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MessageCircle className="w-4 h-4" />
+                      )}
+                      발송
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -625,29 +685,43 @@ export default function AdminPage() {
                     </>
                   )}
 
-                  {/* [요약 복사] 버튼 */}
-                  <button
-                    type="button"
-                    onClick={() => handleCopySummary(vendorName, group)}
-                    className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm 
-                               font-semibold transition-all duration-200 ${
-                      copiedVendor === vendorName
-                        ? 'bg-green-500 text-white'
-                        : 'bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm'
-                    }`}
-                  >
-                    {copiedVendor === vendorName ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4" />
-                        복사 완료!
-                      </>
-                    ) : (
-                      <>
-                        <ClipboardCopy className="w-4 h-4" />
-                        요약 복사
-                      </>
-                    )}
-                  </button>
+                  {/* [요약 복사] 버튼과 [알림톡 발송] 버튼 */}
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCopySummary(vendorName, group)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm 
+                                 font-semibold transition-all duration-200 ${copiedVendor === vendorName
+                          ? 'bg-green-500 text-white'
+                          : 'bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm'
+                        }`}
+                    >
+                      {copiedVendor === vendorName ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          복사 완료!
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardCopy className="w-4 h-4" />
+                          요약 복사
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSendAlimtalk(group.vendor)}
+                      disabled={sendingVendorId === group.vendor.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-bold rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      {sendingVendorId === group.vendor.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MessageCircle className="w-4 h-4" />
+                      )}
+                      알림톡 발송
+                    </button>
+                  </div>
                 </div>
 
                 {/* 데이터 테이블 */}
@@ -683,13 +757,12 @@ export default function AdminPage() {
                             {r.stock_status || '-'}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                              r.supply_status === '원활'
+                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${r.supply_status === '원활'
                                 ? 'bg-green-100 text-green-700'
                                 : r.supply_status === '부족'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                            }`}>
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}>
                               {r.supply_status}
                             </span>
                           </td>
@@ -706,6 +779,22 @@ export default function AdminPage() {
 
       {/* 하단 여백 */}
       <div className="h-8" />
+
+      {/* Toast 알림 */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in-up">
+          <div className={`flex items-center gap-2 px-5 py-3 rounded-xl shadow-lg border text-sm font-semibold text-white backdrop-blur-sm
+            ${toastMessage.isError ? 'bg-red-600/90 border-red-500' : 'bg-slate-800/90 border-slate-700'}`}
+          >
+            {toastMessage.isError ? (
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
+            )}
+            <span>{toastMessage.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
