@@ -181,7 +181,8 @@ export default function InputPage() {
         
         // 1. 카카오톡 인앱 브라우저에서 닫기 시도
         if (/KAKAOTALK/i.test(navigator.userAgent)) {
-          window.location.href = 'kakaotalk://inappbrowser/close'
+          setTimeout(() => { window.location.href = 'kakaotalk://inappbrowser/close' }, 100)
+          return // 다른 코드가 실행되면 카카오톡 닫기 명령이 취소되는 것을 방지
         }
         
         // 2. 일반 크롬/사파리 브라우저에서 닫기 시도 (우회 꼼수)
@@ -213,6 +214,7 @@ export default function InputPage() {
   function handleForceClose() {
     if (/KAKAOTALK/i.test(navigator.userAgent)) {
       window.location.href = 'kakaotalk://inappbrowser/close'
+      return // 카카오톡 닫기 실행 후 여기서 중단!
     }
     window.open('', '_self', '')
     window.close()
