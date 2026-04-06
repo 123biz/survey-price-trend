@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [showDatePicker, setShowDatePicker] = useState(false) // 달력 표시 여부
   const [sendingVendorId, setSendingVendorId] = useState(null) // 알림톡 발송 중인 업체 ID
   const [toastMessage, setToastMessage] = useState(null) // Toast 알림 상태
+  const [copiedAll, setCopiedAll] = useState(false) // 전체 복사 완료 표시
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date(Date.now() + 9 * 60 * 60 * 1000) // 서울 기준 시간
     return { year: d.getUTCFullYear(), month: d.getUTCMonth() }
@@ -241,6 +242,44 @@ export default function AdminPage() {
       setCopiedVendor(vendorName)
       setTimeout(() => setCopiedVendor(null), 2000)
     }
+  }
+
+  // 전체 내용 클립보드 복사
+  async function handleCopyAll() {
+    const grouped = groupByVendor()
+    const missingVendors = getMissingVendors()
+    const [y, mo, dy] = selectedDate.split('-')
+    const dateStr = `${y}년 ${parseInt(mo, 10)}월 ${parseInt(dy, 10)}일`
+
+    let text = `📋 물가 동향 조사 전체 보고\n`
+    text += `📅 ${dateStr}\n`
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+
+    Object.entries(grouped).forEach(([vendorName, group]) => {
+      text += generateSummaryText(vendorName, group)
+      text += '\n\n'
+    })
+
+    if (missingVendors.length > 0) {
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`
+      text += `⚠️ 미입력 업체 (${missingVendors.length}개)\n`
+      missingVendors.forEach(v => {
+        text += `  • ${v.vendor_name}\n`
+      })
+    }
+
+    try {
+      await navigator.clipboard.writeText(text.trim())
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = text.trim()
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    setCopiedAll(true)
+    setTimeout(() => setCopiedAll(false), 2000)
   }
 
   // 알림톡 발송 처리
@@ -502,6 +541,21 @@ export default function AdminPage() {
                   : <Search className="w-4 h-4" />
                 }
                 조회
+              </button>
+
+              {/* 전체 내용 복사 버튼 */}
+              <button
+                onClick={handleCopyAll}
+                disabled={reports.length === 0}
+                className="flex-1 sm:flex-none bg-violet-600 text-white rounded-xl px-5 py-3
+                           font-semibold hover:bg-violet-700 transition-colors flex items-center
+                           justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {copiedAll
+                  ? <CheckCircle2 className="w-4 h-4" />
+                  : <ClipboardCopy className="w-4 h-4" />
+                }
+                {copiedAll ? '복사됨!' : '전체 복사'}
               </button>
 
               {/* CSV 다운로드 버튼 */}
