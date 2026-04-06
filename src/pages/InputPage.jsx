@@ -175,19 +175,14 @@ export default function InputPage() {
       setMessage({ type: 'success', text: '보고가 정상적으로 완료되었습니다. 감사합니다.' })
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
-      // 3초 후 최종 상태로 전환 (자동 닫기 실패 대비)
+      // 3초 후 최종 상태로 전환
       setTimeout(() => {
         setIsFinished(true) // 최종 화면(닫기 버튼 있는 화면)으로 렌더링 전환
-        
-        // 1. 카카오톡 인앱 브라우저에서 닫기 시도
+
+        // 카카오톡 인앱 브라우저에서만 닫기 시도 (일반 브라우저는 완료 화면 표시)
         if (/KAKAOTALK/i.test(navigator.userAgent)) {
           setTimeout(() => { window.location.href = 'kakaotalk://inappbrowser/close' }, 100)
-          return // 다른 코드가 실행되면 카카오톡 닫기 명령이 취소되는 것을 방지
         }
-        
-        // 2. 일반 크롬/사파리 브라우저에서 닫기 시도 (우회 꼼수)
-        window.open('', '_self', '')
-        window.close()
       }, 3000)
     } catch (err) {
       setMessage({ type: 'error', text: '제출 중 오류가 발생했습니다. 다시 시도해주세요.' })
@@ -210,20 +205,12 @@ export default function InputPage() {
     }))
   }
 
-  // '닫기' 버튼을 눌렀을 때의 강제 종료 함수
+  // '닫기' 버튼을 눌렀을 때의 종료 함수
   function handleForceClose() {
     if (/KAKAOTALK/i.test(navigator.userAgent)) {
       window.location.href = 'kakaotalk://inappbrowser/close'
-      return // 카카오톡 닫기 실행 후 여기서 중단!
     }
-    window.open('', '_self', '')
-    window.close()
-
-    // PC 등에서 브라우저가 창 닫기를 막아서 안 닫힐 경우 (버튼이 먹통처럼 보이는 것 방지)
-    // 완전히 빈 기본 하얀색 화면으로 이동시켜서 앱을 종료한 것과 같은 효과를 줌
-    setTimeout(() => {
-      window.location.href = 'about:blank'
-    }, 100)
+    // 일반 브라우저: 브라우저 정책상 스크립트로 탭 닫기 불가 → 사용자가 직접 닫도록 안내
   }
 
   // --- 화면 렌더링 ---
@@ -237,13 +224,18 @@ export default function InputPage() {
             <CheckCircle2 className="w-12 h-12 text-blue-500" />
           </div>
           <h2 className="text-2xl font-extrabold text-slate-800 mb-3">보고가 완료되었습니다</h2>
-          <p className="text-slate-500 leading-relaxed mb-10">귀하의 노고에 진심으로 감사드립니다.<br/>아래 버튼을 눌러 화면을 종료해주세요.</p>
-          <button
-            onClick={handleForceClose}
-            className="w-full bg-slate-800 text-white rounded-2xl py-4 font-bold text-xl shadow-md hover:bg-slate-900 transition-colors"
-          >
-            화면 닫기
-          </button>
+          <p className="text-slate-500 leading-relaxed mb-10">
+            귀하의 노고에 진심으로 감사드립니다.<br/>
+            이 창을 닫아주시면 됩니다.
+          </p>
+          {/KAKAOTALK/i.test(navigator.userAgent) && (
+            <button
+              onClick={handleForceClose}
+              className="w-full bg-slate-800 text-white rounded-2xl py-4 font-bold text-xl shadow-md hover:bg-slate-900 transition-colors"
+            >
+              화면 닫기
+            </button>
+          )}
         </div>
       </div>
     )
