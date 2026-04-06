@@ -7,7 +7,6 @@ import {
   ChevronLeft, ChevronRight, Calendar, ClipboardCopy,
   CheckCircle2, AlertTriangle, Building2, MessageCircle
 } from 'lucide-react'
-import { sendAlimtalk } from '../lib/solapi'
 
 export default function AdminPage() {
   // 오늘 날짜를 항상 서울(KST, UTC+9) 기준으로 설정
@@ -309,8 +308,11 @@ export default function AdminPage() {
       const baseUrl = 'survey-price-trend.pages.dev';
       const finalUrl = baseUrl + '/input?key=' + secretKey;
       
-      // 실제 API 호출
-      await sendAlimtalk(phone, finalUrl, fullVendor.vendor_name, managerName);
+      // Edge Function 호출 (서버 사이드 발송)
+      const { error: fnError } = await supabase.functions.invoke('send-alimtalk', {
+        body: { phone, url: finalUrl, vendorName: fullVendor.vendor_name, managerName },
+      })
+      if (fnError) throw fnError
       showToast('알림톡이 전송되었습니다.');
     } catch (err) {
       console.error(err);
