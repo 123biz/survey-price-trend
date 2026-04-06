@@ -4,6 +4,11 @@
 
 const SOLAPI_API_URL = 'https://api.solapi.com/messages/v4/send'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 async function hmacSha256(message: string, secret: string): Promise<string> {
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
@@ -20,20 +25,25 @@ async function hmacSha256(message: string, secret: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS })
+  }
+
   if (req.method !== 'POST') {
-    return Response.json({ error: 'Method not allowed' }, { status: 405 })
+    return Response.json({ error: 'Method not allowed' }, { status: 405, headers: CORS_HEADERS })
   }
 
   let body: { phone: string; url: string; vendorName: string; managerName: string }
   try {
     body = await req.json()
   } catch {
-    return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400, headers: CORS_HEADERS })
   }
 
   const { phone, url, vendorName, managerName } = body
   if (!phone || !url) {
-    return Response.json({ error: 'phone and url are required' }, { status: 400 })
+    return Response.json({ error: 'phone and url are required' }, { status: 400, headers: CORS_HEADERS })
   }
 
   const apiKey     = Deno.env.get('SOLAPI_API_KEY')!
@@ -77,13 +87,13 @@ Deno.serve(async (req) => {
       const err = await response.json()
       return Response.json(
         { error: err.errorMessage || `HTTP ${response.status}` },
-        { status: response.status }
+        { status: response.status, headers: CORS_HEADERS }
       )
     }
 
-    return Response.json({ success: true })
+    return Response.json({ success: true }, { headers: CORS_HEADERS })
   } catch (err) {
     console.error('send-alimtalk 오류:', err)
-    return Response.json({ error: String(err) }, { status: 500 })
+    return Response.json({ error: String(err) }, { status: 500, headers: CORS_HEADERS })
   }
 })
