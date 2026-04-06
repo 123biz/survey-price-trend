@@ -61,7 +61,7 @@ export default function AdminPage() {
         .from('survey_daily_reports')
         .select(`
           *,
-          survey_vendors ( id, vendor_name, biz_number, manager_name ),
+          survey_vendors ( id, vendor_name, biz_number, manager_name, manager_phone, secret_key ),
           survey_items ( item_name, item_spec )
         `)
         .eq('report_date', selectedDate)
