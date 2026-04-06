@@ -764,19 +764,6 @@ export default function AdminPage() {
                         </>
                       )}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSendAlimtalk(group.vendor)}
-                      disabled={sendingVendorId === group.vendor.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-bold rounded-lg text-sm transition-colors disabled:opacity-50"
-                    >
-                      {sendingVendorId === group.vendor.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <MessageCircle className="w-4 h-4" />
-                      )}
-                      알림톡 발송
-                    </button>
                   </div>
                 </div>
 
