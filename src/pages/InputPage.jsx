@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Send, History, Building2, AlertCircle, CheckCircle2, Loader2, Info } from 'lucide-react'
+import { Send, History, Building2, AlertCircle, CheckCircle2, Loader2, Info, ExternalLink } from 'lucide-react'
 
 export default function InputPage() {
   // URL에서 ?key= 파라미터를 읽음
@@ -281,9 +281,23 @@ export default function InputPage() {
       {/* 상단 헤더: 업체 정보 */}
       <header className="bg-gradient-to-r from-blue-700 to-blue-900 text-white shadow-lg">
         <div className="max-w-2xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Building2 className="w-8 h-8 text-blue-200" />
-            <h1 className="text-2xl font-bold">물가 동향 조사</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="w-8 h-8 text-blue-200" />
+              <h1 className="text-2xl font-bold">물가 동향 조사</h1>
+            </div>
+            <p className="text-blue-200 text-right leading-snug">
+              <span className="text-sm">AI 시대를 이끌어가는</span><br />
+              <a
+                href="https://www.aicamp.club"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-bold text-white underline hover:text-blue-100 text-lg"
+              >
+                AI CAMP
+                <ExternalLink className="w-6 h-6" />
+              </a>
+            </p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 space-y-2">
             <p className="text-xl font-semibold">{vendor.vendor_name}</p>
