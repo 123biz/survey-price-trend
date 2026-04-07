@@ -448,8 +448,11 @@ export default function AdminPage() {
 
   // 선택한 날짜를 보기 좋게 표시 (브라우저 시간대 영향 방지)
   const [y, m, d] = selectedDate.split('-');
-  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-  const displayDate = `${selectedDate}(${weekdays[new Date(y, m - 1, d).getDay()]})`;
+  const weekdaysShort  = ['일', '월', '화', '수', '목', '금', '토'];
+  const weekdaysLong   = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const dowIndex = new Date(y, m - 1, d).getDay();
+  const displayDateMobile  = `${selectedDate}(${weekdaysShort[dowIndex]})`;
+  const displayDateDesktop = `${y}년 ${parseInt(m, 10)}월 ${parseInt(d, 10)}일 ${weekdaysLong[dowIndex]}`;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -463,8 +466,8 @@ export default function AdminPage() {
 
       {/* 상단 헤더 */}
       <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg">
-        <div className="max-w-6xl mx-auto px-4 py-5 text-center">
-          <div className="flex items-center justify-center gap-3 mb-1">
+        <div className="max-w-6xl mx-auto px-4 py-5 text-center sm:text-left">
+          <div className="flex items-center justify-center sm:justify-start gap-3 mb-1">
             <BarChart3 className="w-8 h-8 text-blue-400" />
             <h1 className="text-2xl md:text-3xl font-bold">관리자 대시보드</h1>
           </div>
@@ -500,7 +503,8 @@ export default function AdminPage() {
                            flex items-center justify-center gap-2 bg-white"
               >
                 <Calendar className="w-5 h-5 text-blue-500" />
-                <span>{displayDate}</span>
+                <span className="sm:hidden">{displayDateMobile}</span>
+                <span className="hidden sm:inline">{displayDateDesktop}</span>
               </button>
 
               {/* 다음 날 */}
@@ -538,7 +542,10 @@ export default function AdminPage() {
                            font-semibold hover:bg-blue-700 transition-colors flex items-center
                            justify-center gap-2 disabled:opacity-50"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {loading
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Search className="hidden sm:block w-4 h-4" />
+                }
                 조회
               </button>
 
@@ -550,6 +557,10 @@ export default function AdminPage() {
                            font-semibold hover:bg-violet-700 transition-colors flex items-center
                            justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                {copiedAll
+                  ? <CheckCircle2 className="hidden sm:block w-4 h-4" />
+                  : <ClipboardCopy className="hidden sm:block w-4 h-4" />
+                }
                 <span className="sm:hidden">{copiedAll ? '복사됨!' : '복사'}</span>
                 <span className="hidden sm:inline">{copiedAll ? '복사됨!' : '전체 복사'}</span>
               </button>
@@ -588,28 +599,48 @@ export default function AdminPage() {
 
         {/* ② 요약 통계 카드 (입력률 + 미입력 업체 수) */}
         {!loading && totalVendorCount > 0 && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
             {/* 전체 업체 수 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-3 flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-blue-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
-              <div className="flex-1 text-center">
-                <p className="text-xs text-slate-500">전체 업체</p>
-                <p className="text-xl font-bold text-slate-800">{totalVendorCount}</p>
+              <div className="flex-1 text-center sm:text-left">
+                <p className="text-xs sm:text-sm text-slate-500">전체 업체</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-800">{totalVendorCount}</p>
               </div>
             </div>
 
             {/* 입력 완료 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-3 flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
               </div>
-              <div className="flex-1 text-center">
-                <p className="text-xs text-slate-500">입력 완료</p>
-                <p className="text-xl font-bold text-emerald-700">
+              <div className="flex-1 text-center sm:text-left">
+                <p className="text-xs sm:text-sm text-slate-500">입력 완료</p>
+                <p className="text-xl sm:text-2xl font-bold text-emerald-700">
                   {reportedCount}
-                  <span className="text-xs font-medium text-slate-400 ml-1">({submissionRate}%)</span>
+                  <span className="text-xs sm:text-sm font-medium text-slate-400 ml-1">({submissionRate}%)</span>
+                </p>
+              </div>
+            </div>
+
+            {/* 미입력 — 데스크탑에서만 표시 */}
+            <div className={`hidden sm:flex rounded-2xl shadow-sm border p-4 items-center gap-3 ${
+              missingVendors.length > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'
+            }`}>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                missingVendors.length > 0 ? 'bg-red-100' : 'bg-slate-100'
+              }`}>
+                <AlertTriangle className={`w-6 h-6 ${missingVendors.length > 0 ? 'text-red-600' : 'text-slate-400'}`} />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">미입력</p>
+                <p className={`text-2xl font-bold ${missingVendors.length > 0 ? 'text-red-700' : 'text-slate-400'}`}>
+                  {missingVendors.length}
+                  {missingVendors.length > 0 && (
+                    <span className="text-sm font-medium text-red-500 ml-1">⚠️ 확인필요</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -645,6 +676,11 @@ export default function AdminPage() {
                       {v.manager_name || '담당자 미등록'}
                     </p>
                   </div>
+                  {/* 미입력 배지 — 데스크탑에서만 표시 */}
+                  <span className="hidden sm:inline bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1
+                                   rounded-full whitespace-nowrap animate-pulse">
+                    미입력
+                  </span>
                   {/* 알림톡 버튼 */}
                   <div className="ml-auto">
                     <button
