@@ -448,8 +448,8 @@ export default function AdminPage() {
 
   // 선택한 날짜를 보기 좋게 표시 (브라우저 시간대 영향 방지)
   const [y, m, d] = selectedDate.split('-');
-  const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
-  const displayDate = `${y}년 ${parseInt(m, 10)}월 ${parseInt(d, 10)}일 ${weekdays[new Date(y, m - 1, d).getDay()]}`;
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const displayDate = `${selectedDate}(${weekdays[new Date(y, m - 1, d).getDay()]})`;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -463,12 +463,12 @@ export default function AdminPage() {
 
       {/* 상단 헤더 */}
       <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg">
-        <div className="max-w-6xl mx-auto px-4 py-5">
-          <div className="flex items-center gap-3 mb-1">
-            <BarChart3 className="w-7 h-7 text-blue-400" />
-            <h1 className="text-xl md:text-2xl font-bold">관리자 대시보드</h1>
+        <div className="max-w-6xl mx-auto px-4 py-5 text-center">
+          <div className="flex items-center justify-center gap-3 mb-1">
+            <BarChart3 className="w-8 h-8 text-blue-400" />
+            <h1 className="text-2xl md:text-3xl font-bold">관리자 대시보드</h1>
           </div>
-          <p className="text-slate-400 text-sm">물가 동향 조사 데이터 관리</p>
+          <p className="text-slate-400 text-base">물가 동향 조사 데이터 관리</p>
         </div>
       </header>
 
@@ -483,10 +483,10 @@ export default function AdminPage() {
               <button
                 onClick={() => moveDate(-1)}
                 disabled={selectedDate <= '2026-04-01'}
-                className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="전날"
               >
-                <ChevronLeft className="w-5 h-5 text-slate-600" />
+                <ChevronLeft className="w-4 h-4 text-slate-600" />
               </button>
 
               {/* 날짜 표시 + 달력 토글 */}
@@ -506,10 +506,10 @@ export default function AdminPage() {
               {/* 다음 날 */}
               <button
                 onClick={() => moveDate(1)}
-                className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
                 title="다음날"
               >
-                <ChevronRight className="w-5 h-5 text-slate-600" />
+                <ChevronRight className="w-4 h-4 text-slate-600" />
               </button>
 
               {/* 미니 달력 드롭다운 */}
@@ -517,12 +517,12 @@ export default function AdminPage() {
             </div>
 
             {/* 오늘 / 조회 / CSV 다운로드 버튼 */}
-            <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ml-auto">
               {/* 오늘 버튼 */}
               {selectedDate !== today && (
                 <button
                   onClick={goToday}
-                  className="bg-slate-100 text-slate-700 rounded-xl px-4 py-3 
+                  className="bg-slate-100 text-slate-700 rounded-xl px-4 py-3
                              font-semibold hover:bg-slate-200 transition-colors text-sm
                              whitespace-nowrap"
                 >
@@ -534,14 +534,11 @@ export default function AdminPage() {
               <button
                 onClick={fetchReports}
                 disabled={loading}
-                className="flex-1 sm:flex-none bg-blue-600 text-white rounded-xl px-5 py-3 
-                           font-semibold hover:bg-blue-700 transition-colors flex items-center 
+                className="flex-1 sm:flex-none bg-blue-600 text-white rounded-xl px-5 py-3
+                           font-semibold hover:bg-blue-700 transition-colors flex items-center
                            justify-center gap-2 disabled:opacity-50"
               >
-                {loading
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <Search className="w-4 h-4" />
-                }
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 조회
               </button>
 
@@ -553,23 +550,21 @@ export default function AdminPage() {
                            font-semibold hover:bg-violet-700 transition-colors flex items-center
                            justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {copiedAll
-                  ? <CheckCircle2 className="w-4 h-4" />
-                  : <ClipboardCopy className="w-4 h-4" />
-                }
-                {copiedAll ? '복사됨!' : '전체 복사'}
+                <span className="sm:hidden">{copiedAll ? '복사됨!' : '복사'}</span>
+                <span className="hidden sm:inline">{copiedAll ? '복사됨!' : '전체 복사'}</span>
               </button>
 
               {/* CSV 다운로드 버튼 */}
               <button
                 onClick={handleDownloadCSV}
                 disabled={reports.length === 0 && missingVendors.length === 0}
-                className="flex-1 sm:flex-none bg-emerald-600 text-white rounded-xl px-5 py-3 
-                           font-semibold hover:bg-emerald-700 transition-colors flex items-center 
+                className="flex-1 sm:flex-none bg-emerald-600 text-white rounded-xl px-5 py-3
+                           font-semibold hover:bg-emerald-700 transition-colors flex items-center
                            justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="w-4 h-4" />
-                CSV 다운로드
+                <span className="sm:hidden">CSV</span>
+                <span className="hidden sm:inline">CSV 다운로드</span>
               </button>
             </div>
           </div>
@@ -593,55 +588,32 @@ export default function AdminPage() {
 
         {/* ② 요약 통계 카드 (입력률 + 미입력 업체 수) */}
         {!loading && totalVendorCount > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {/* 전체 업체 수 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-blue-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-3 flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-5 h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm text-slate-500">전체 업체</p>
-                <p className="text-2xl font-bold text-slate-800">{totalVendorCount}</p>
+              <div className="flex-1 text-center">
+                <p className="text-xs text-slate-500">전체 업체</p>
+                <p className="text-xl font-bold text-slate-800">{totalVendorCount}</p>
               </div>
             </div>
 
             {/* 입력 완료 */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 px-3 py-3 flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="text-sm text-slate-500">입력 완료</p>
-                <p className="text-2xl font-bold text-emerald-700">
+              <div className="flex-1 text-center">
+                <p className="text-xs text-slate-500">입력 완료</p>
+                <p className="text-xl font-bold text-emerald-700">
                   {reportedCount}
-                  <span className="text-sm font-medium text-slate-400 ml-1">
-                    ({submissionRate}%)
-                  </span>
+                  <span className="text-xs font-medium text-slate-400 ml-1">({submissionRate}%)</span>
                 </p>
               </div>
             </div>
 
-            {/* 미입력 */}
-            <div className={`rounded-2xl shadow-sm border p-4 flex items-center gap-3 ${missingVendors.length > 0
-                ? 'bg-red-50 border-red-200'
-                : 'bg-white border-slate-200'
-              }`}>
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${missingVendors.length > 0 ? 'bg-red-100' : 'bg-slate-100'
-                }`}>
-                <AlertTriangle className={`w-6 h-6 ${missingVendors.length > 0 ? 'text-red-600' : 'text-slate-400'
-                  }`} />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">미입력</p>
-                <p className={`text-2xl font-bold ${missingVendors.length > 0 ? 'text-red-700' : 'text-slate-400'
-                  }`}>
-                  {missingVendors.length}
-                  {missingVendors.length > 0 && (
-                    <span className="text-sm font-medium text-red-500 ml-1">⚠️ 확인필요</span>
-                  )}
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -673,12 +645,8 @@ export default function AdminPage() {
                       {v.manager_name || '담당자 미등록'}
                     </p>
                   </div>
-                  {/* 미입력 배지와 알림톡 버튼 */}
-                  <div className="ml-auto flex items-center gap-2">
-                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 
-                                     rounded-full whitespace-nowrap animate-pulse">
-                      미입력
-                    </span>
+                  {/* 알림톡 버튼 */}
+                  <div className="ml-auto">
                     <button
                       onClick={() => handleSendAlimtalk(v)}
                       disabled={sendingVendorId === v.id}
@@ -728,47 +696,89 @@ export default function AdminPage() {
                            hover:shadow-md transition-shadow duration-200"
               >
                 {/* 업체 헤더 + 요약 복사 버튼 */}
-                <div className="bg-slate-700 text-white px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <span className="font-bold text-lg">{vendorName}</span>
-                  {group.vendor && (
-                    <>
-                      <span className="text-slate-300 text-sm">
-                        사업자번호: {group.vendor.biz_number}
-                      </span>
-                      <span className="text-slate-300 text-sm">
-                        담당자: {group.vendor.manager_name}
-                      </span>
-                    </>
-                  )}
-
-                  {/* [요약 복사] 버튼과 [알림톡 발송] 버튼 */}
-                  <div className="ml-auto flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCopySummary(vendorName, group)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm 
-                                 font-semibold transition-all duration-200 ${copiedVendor === vendorName
-                          ? 'bg-green-500 text-white'
-                          : 'bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm'
-                        }`}
-                    >
-                      {copiedVendor === vendorName ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          복사 완료!
-                        </>
-                      ) : (
-                        <>
-                          <ClipboardCopy className="w-4 h-4" />
-                          요약 복사
-                        </>
-                      )}
-                    </button>
+                <div className="bg-slate-700 text-white px-4 py-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="font-bold text-lg block leading-tight">{vendorName}</span>
+                    {group.vendor && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                        <span className="text-slate-300 text-sm">
+                          사업자번호: {group.vendor.biz_number}
+                        </span>
+                        <span className="text-slate-300 text-sm">
+                          담당자: {group.vendor.manager_name}
+                        </span>
+                      </div>
+                    )}
                   </div>
+
+                  {/* 요약 복사 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => handleCopySummary(vendorName, group)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm
+                               font-semibold transition-all duration-200 ${copiedVendor === vendorName
+                        ? 'bg-green-500 text-white'
+                        : 'bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm'
+                      }`}
+                  >
+                    {copiedVendor === vendorName ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">복사 완료!</span>
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardCopy className="w-4 h-4" />
+                        <span className="hidden sm:inline">요약 복사</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
-                {/* 데이터 테이블 */}
-                <div className="overflow-x-auto">
+                {/* 모바일: 품목 카드 뷰 */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {group.items.map(r => (
+                    <div key={r.id} className="px-4 py-3 text-center">
+                      <p className="font-semibold text-red-600 mb-2">
+                        {r.survey_items?.item_name || '-'}
+                        {r.survey_items?.item_spec && (
+                          <span className="text-slate-400 text-sm font-normal ml-1">
+                            ({r.survey_items.item_spec})
+                          </span>
+                        )}
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-slate-400 font-medium">입고가 동향</span>
+                          <span className="text-slate-700">{r.price_in_trend || '-'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-slate-400 font-medium">판매가 동향</span>
+                          <span className="text-slate-700">{r.price_out_trend || '-'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-slate-400 font-medium">재고 현황</span>
+                          <span className="text-slate-700">{r.stock_status || '-'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-slate-400 font-medium">수급</span>
+                          <span className={`inline-block w-fit mx-auto px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            r.supply_status === '원활'
+                              ? 'bg-green-100 text-green-700'
+                              : r.supply_status === '부족'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {r.supply_status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 데스크탑: 테이블 뷰 */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
