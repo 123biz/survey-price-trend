@@ -26,5 +26,5 @@
   <polygon points="368,78 322,72 348,108" fill="white" opacity="0.95"/>
   <!-- 하단 텍스트 -->
   <text x="256" y="448" text-anchor="middle" font-family="'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif"
-    font-size="50" font-weight="700" fill="white" opacity="0.95">제품시장동향</text>
+    font-size="76" font-weight="700" fill="white" opacity="0.95">가격동향</text>
 </svg>

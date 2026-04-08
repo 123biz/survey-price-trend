@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => {
         devOptions: { enabled: false },
 
         manifest: {
-          name: '설문 가격 트렌드 관리',
-          short_name: '가격트렌드',
+          name: '석유관련제품 시장동향',
+          short_name: '제품가격동향',
           description: '업체별 일일 가격 동향 조사 및 관리 시스템',
           start_url: '/admin',
           scope: '/',
