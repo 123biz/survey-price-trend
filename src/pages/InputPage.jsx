@@ -292,7 +292,7 @@ export default function InputPage() {
                 href="https://www.aicamp.club"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-bold text-white underline hover:text-blue-100 text-lg"
+                className="inline-flex items-center gap-1 font-bold text-white underline hover:text-blue-100 text-base"
               >
                 AI CAMP
                 <ExternalLink className="w-6 h-6" />
