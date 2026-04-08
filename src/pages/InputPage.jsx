@@ -284,7 +284,7 @@ export default function InputPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Building2 className="w-8 h-8 text-blue-200" />
-              <h1 className="text-2xl font-bold">물가 동향 조사</h1>
+              <h1 className="text-2xl font-bold">국토부 물가동향 조사</h1>
             </div>
             <p className="text-blue-200 text-right leading-snug">
               <span className="text-sm">AI 시대를 이끌어가는</span><br />
