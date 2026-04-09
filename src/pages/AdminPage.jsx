@@ -289,7 +289,7 @@ export default function AdminPage() {
     const phone = fullVendor.manager_phone;
 
     // 1. 발송 전 확인 창
-    if (!window.confirm(`${managerName} 담당자님께 알림톡을 보내시겠습니까?`)) {
+    if (!window.confirm(`${managerName}님께 알림톡을 보내시겠습니까?`)) {
       return;
     }
 
