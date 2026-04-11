@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [sendingVendorId, setSendingVendorId] = useState(null) // 알림톡 발송 중인 업체 ID
   const [toastMessage, setToastMessage] = useState(null) // Toast 알림 상태
   const [copiedAll, setCopiedAll] = useState(false) // 전체 복사 완료 표시
+  const [sendingAll, setSendingAll] = useState(false) // 전체 알림톡 발송 중 여부
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date(Date.now() + 9 * 60 * 60 * 1000) // 서울 기준 시간
     return { year: d.getUTCFullYear(), month: d.getUTCMonth() }
@@ -288,6 +289,28 @@ export default function AdminPage() {
     setTimeout(() => setCopiedAll(false), 2000)
   }
 
+  // 전체 업체 알림톡 일괄 발송
+  async function handleSendAllAlimtalk() {
+    const targetVendors = allVendors.filter(
+      v => !MONITORING_ONLY_VENDORS.includes(v.vendor_name)
+    )
+    if (!window.confirm(
+      `현재 활성화된 모든 업체(${targetVendors.length}개)에 오늘자 동향 보고 요청 알림톡을 보내시겠습니까?`
+    )) return
+
+    setSendingAll(true)
+    try {
+      const { error: fnError } = await supabase.functions.invoke('send-daily-alimtalk')
+      if (fnError) throw fnError
+      showToast('전체 발송이 완료되었습니다.')
+    } catch (err) {
+      console.error(err)
+      showToast(`전체 발송 실패: ${err.message}`, true)
+    } finally {
+      setSendingAll(false)
+    }
+  }
+
   // 알림톡 발송 처리
   async function handleSendAlimtalk(vendorInfo) {
     // allVendors 목록에서 완전한 데이터(phone_number 등 포함)를 찾음
@@ -448,7 +471,7 @@ export default function AdminPage() {
   const grouped = groupByVendor()
   const missingVendors = getMissingVendors()
   const reportedCount = Object.keys(grouped).length
-  const totalVendorCount = allVendors.length
+  const totalVendorCount = allVendors.filter(v => !MONITORING_ONLY_VENDORS.includes(v.vendor_name)).length
   const submissionRate = totalVendorCount > 0
     ? Math.round((reportedCount / totalVendorCount) * 100)
     : 0
@@ -662,9 +685,23 @@ export default function AdminPage() {
             <div className="bg-red-600 text-white px-4 py-3 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" />
               <span className="font-bold text-lg">미입력 업체</span>
-              <span className="ml-auto bg-white/20 backdrop-blur-sm rounded-full px-3 py-0.5 text-sm font-semibold">
-                {missingVendors.length}개 업체
+              <span className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-0.5 text-sm font-semibold">
+                {missingVendors.length}개
               </span>
+              <button
+                onClick={handleSendAllAlimtalk}
+                disabled={sendingAll}
+                className="ml-auto flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-500
+                           text-yellow-950 font-bold px-3 py-1.5 rounded-lg text-sm
+                           transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingAll ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <MessageCircle className="w-4 h-4" />
+                )}
+                {sendingAll ? '발송 중...' : '전체 발송'}
+              </button>
             </div>
             {/* 미입력 업체 리스트 */}
             <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
