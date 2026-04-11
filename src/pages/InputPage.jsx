@@ -287,7 +287,7 @@ export default function InputPage() {
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 space-y-2">
             <p className="text-xl font-semibold">{vendor.vendor_name}</p>
-            <p className="text-blue-100">사업자번호: {vendor.biz_number}</p>
+            {vendor.memo && <p className="text-blue-100">{vendor.memo}</p>}
             <p className="text-blue-100">담당자: {vendor.manager_name}</p>
           </div>
           <div className="mt-2 mb-0 text-right">

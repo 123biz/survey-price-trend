@@ -42,6 +42,7 @@ export default function AdminPage() {
       const { data, error: fetchError } = await supabase
         .from('survey_vendors')
         .select('*, survey_items(id, item_name, item_spec, is_active)')
+        .eq('is_active', true)
         .order('vendor_name', { ascending: true })
 
       if (fetchError) throw fetchError
@@ -61,7 +62,7 @@ export default function AdminPage() {
         .from('survey_daily_reports')
         .select(`
           *,
-          survey_vendors ( id, vendor_name, biz_number, manager_name, manager_phone, secret_key ),
+          survey_vendors ( id, vendor_name, biz_number, manager_name, manager_phone, secret_key, memo ),
           survey_items ( item_name, item_spec )
         `)
         .eq('report_date', selectedDate)
@@ -185,11 +186,17 @@ export default function AdminPage() {
   }
 
   // 미입력 업체 찾기: 전체 업체 중 해당 날짜에 보고 데이터가 없는 업체
+  // 모니터링 전용 업체는 제외
+  const MONITORING_ONLY_VENDORS = ['한국자동차부품협회', '(주)에이아이캠프']
+
   function getMissingVendors() {
     const reportedVendorIds = new Set(
       reports.map(r => r.survey_vendors?.id).filter(Boolean)
     )
-    return allVendors.filter(v => !reportedVendorIds.has(v.id))
+    return allVendors.filter(v =>
+      !reportedVendorIds.has(v.id) &&
+      !MONITORING_ONLY_VENDORS.includes(v.vendor_name)
+    )
   }
 
   // 요약 텍스트 생성 (업체별 카드 내용을 텍스트로 정리)
@@ -736,10 +743,12 @@ export default function AdminPage() {
                   <div className="min-w-0">
                     <span className="font-bold text-lg block leading-tight">{vendorName}</span>
                     {group.vendor && (
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                        <span className="text-slate-300 text-sm">
-                          사업자번호: {group.vendor.biz_number}
-                        </span>
+                      <div className="flex flex-col gap-y-0.5 mt-1">
+                        {group.vendor.memo && (
+                          <span className="text-slate-300 text-sm">
+                            {group.vendor.memo}
+                          </span>
+                        )}
                         <span className="text-slate-300 text-sm">
                           담당자: {group.vendor.manager_name}
                         </span>
