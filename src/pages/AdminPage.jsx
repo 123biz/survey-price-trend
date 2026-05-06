@@ -821,10 +821,10 @@ export default function AdminPage() {
 
                 {/* 모바일: 품목 카드 뷰 */}
                 <div className="sm:hidden divide-y divide-slate-100">
-                  {group.items.map(r => (
+                  {group.items.map((r, idx) => (
                     <div key={r.id} className="px-4 py-3 text-center">
                       <p className="font-semibold text-red-600 mb-2">
-                        {r.survey_items?.item_name || '-'}
+                        품목{idx + 1}. {r.survey_items?.item_name || '-'}
                         {r.survey_items?.item_spec && (
                           <span className="text-slate-400 text-sm font-normal ml-1">
                             ({r.survey_items.item_spec})
