@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Send, History, Building2, AlertCircle, CheckCircle2, Loader2, Info, ExternalLink } from 'lucide-react'
+import { Send, Building2, AlertCircle, CheckCircle2, Loader2, Info, ExternalLink } from 'lucide-react'
 
 export default function InputPage() {
   // URL에서 ?key= 파라미터를 읽음
@@ -17,7 +17,6 @@ export default function InputPage() {
   const [loading, setLoading] = useState(true)       // 로딩 중 여부
   const [submitting, setSubmitting] = useState(false) // 제출 중 여부
   const [message, setMessage] = useState(null)       // 성공/에러 메시지
-  const [loadingItems, setLoadingItems] = useState({}) // 품목별 불러오기 로딩 상태
   const [hasTodayData, setHasTodayData] = useState(false) // 오늘 데이터가 이미 있는지 여부
   const [isFinished, setIsFinished] = useState(false) // 제출 완료 후 최종 종료 화면 여부
 
@@ -83,10 +82,11 @@ export default function InputPage() {
         }
 
         initialData[item.id] = {
-          price_in_trend: todayReport ? todayReport.price_in_trend : '',
-          price_out_trend: todayReport ? todayReport.price_out_trend : '',
-          stock_status: todayReport ? todayReport.stock_status : '',
-          supply_status: todayReport ? todayReport.supply_status : '',
+          price_pre_war: todayReport ? todayReport.price_pre_war : '',
+          price_post_war: todayReport ? todayReport.price_post_war : '',
+          price_mid_april: todayReport ? todayReport.price_mid_april : '',
+          price_end_april: todayReport ? todayReport.price_end_april : '',
+          price_today: todayReport ? todayReport.price_today : '',
         }
       })
 
@@ -98,47 +98,6 @@ export default function InputPage() {
       console.error(err)
     } finally {
       setLoading(false)
-    }
-  }
-
-  // [최근 데이터 불러오기] 단일 품목
-  async function handleLoadRecentData(itemId) {
-    if (!vendor) return
-    setLoadingItems(prev => ({ ...prev, [itemId]: true }))
-
-    try {
-      // 가장 최신 데이터 1건을 가져옵니다. (오늘이든 과거든 상관없이 id기준 내림차순 최신)
-      const { data, error } = await supabase
-        .from('survey_daily_reports')
-        .select('*')
-        .eq('vendor_id', vendor.id)
-        .eq('item_id', itemId)
-        .order('report_date', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (error && error.code === 'PGRST116') {
-        // 결과가 없는 경우
-        alert('이전 보고 데이터가 없습니다.')
-      } else if (data) {
-        setFormData(prev => ({
-          ...prev,
-          [itemId]: {
-            ...prev[itemId],
-            price_in_trend: data.price_in_trend?.toString() || '',
-            price_out_trend: data.price_out_trend?.toString() || '',
-            stock_status: data.stock_status || '',
-            supply_status: data.supply_status || '',
-          }
-        }))
-      } else if (error) {
-        throw error
-      }
-    } catch (err) {
-      console.error(err)
-      alert('데이터를 불러오는 중 오류가 발생했습니다.')
-    } finally {
-      setLoadingItems(prev => ({ ...prev, [itemId]: false }))
     }
   }
 
@@ -157,10 +116,11 @@ export default function InputPage() {
         vendor_id: vendor.id,
         item_id: item.id,
         report_date: today,
-        price_in_trend: formData[item.id]?.price_in_trend || '',
-        price_out_trend: formData[item.id]?.price_out_trend || '',
-        stock_status: formData[item.id]?.stock_status || '',
-        supply_status: formData[item.id]?.supply_status || '',
+        price_pre_war: formData[item.id]?.price_pre_war || '',
+        price_post_war: formData[item.id]?.price_post_war || '',
+        price_mid_april: formData[item.id]?.price_mid_april || '',
+        price_end_april: formData[item.id]?.price_end_april || '',
+        price_today: formData[item.id]?.price_today || '',
       }))
 
       // upsert: vendor_id + item_id + report_date 조건이 겹치면 업데이트 수행
@@ -352,132 +312,39 @@ export default function InputPage() {
             key={item.id}
             className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden"
           >
-            {/* 품목 헤더 + 최근 데이터 불러오기 버튼 */}
-            <div className="bg-slate-800 text-white px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="font-bold text-xl">
-                  {index + 1}. {item.item_name}
-                </span>
-                {item.item_spec && (
-                  <span className="ml-2 text-slate-300 text-sm">({item.item_spec})</span>
-                )}
-              </div>
-              
-              <button
-                type="button"
-                onClick={() => handleLoadRecentData(item.id)}
-                disabled={loadingItems[item.id]}
-                className="bg-white/20 hover:bg-white/30 text-white rounded-xl px-4 py-2 
-                           text-sm font-semibold flex items-center justify-center gap-2 
-                           transition-colors disabled:opacity-50"
-              >
-                {loadingItems[item.id] ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <History className="w-4 h-4" />
-                )}
-                최근 데이터 불러오기
-              </button>
+            {/* 품목 헤더 */}
+            <div className="bg-slate-800 text-white px-5 py-4">
+              <span className="font-bold text-xl">
+                품목{index + 1}. <span className="text-yellow-300">{item.item_name}</span>
+              </span>
+              {item.item_spec && (
+                <span className="ml-2 text-slate-300 text-sm">({item.item_spec})</span>
+              )}
             </div>
 
-            {/* 입력 필드 (텍스트 4개 + 변동없음 버튼) */}
+            {/* 입력 필드 (시계열 5개) */}
             <div className="p-5 flex flex-col gap-5">
-              
-              {/* 입고가 */}
-              <div>
-                <label className="block text-base font-bold text-slate-700 mb-2">입고가 동향</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="예: 15% 인상"
-                    value={formData[item.id]?.price_in_trend || ''}
-                    onChange={(e) => handleInputChange(item.id, 'price_in_trend', e.target.value)}
-                    className="flex-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
-                               focus:border-blue-500 focus:ring-2 focus:ring-blue-100 
-                               outline-none transition-all placeholder:text-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange(item.id, 'price_in_trend', '변동 없음')}
-                    className="flex-shrink-0 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 
-                               font-semibold hover:bg-slate-200 transition-colors border-2 border-transparent"
-                  >
-                    변동 없음
-                  </button>
-                </div>
-              </div>
 
-              {/* 판매가 */}
-              <div>
-                <label className="block text-base font-bold text-slate-700 mb-2">판매가 동향</label>
-                <div className="flex gap-2">
+              {[
+                { label: '전쟁 전 (26.2월)', field: 'price_pre_war',  placeholder: '가격 또는 기준 지수 100 입력' },
+                { label: '전쟁 후 (26.3월)', field: 'price_post_war', placeholder: '전쟁 전 대비 15% 상승' },
+                { label: '4월 중순 기준',      field: 'price_mid_april', placeholder: '전쟁 전 대비 15% 상승' },
+                { label: '4월 말 기준',        field: 'price_end_april', placeholder: '전쟁 전 대비 15% 상승' },
+                { label: '오늘 기준',          field: 'price_today',    placeholder: '전쟁 전 대비 15% 상승' },
+              ].map(({ label, field, placeholder }) => (
+                <div key={field}>
+                  <label className="block text-base font-bold text-slate-700 mb-2">{label}</label>
                   <input
                     type="text"
-                    placeholder="예: 유지, 10% 인상"
-                    value={formData[item.id]?.price_out_trend || ''}
-                    onChange={(e) => handleInputChange(item.id, 'price_out_trend', e.target.value)}
-                    className="flex-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
-                               focus:border-blue-500 focus:ring-2 focus:ring-blue-100 
+                    placeholder={placeholder}
+                    value={formData[item.id]?.[field] || ''}
+                    onChange={(e) => handleInputChange(item.id, field, e.target.value)}
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
+                               focus:border-blue-500 focus:ring-2 focus:ring-blue-100
                                outline-none transition-all placeholder:text-slate-400"
                   />
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange(item.id, 'price_out_trend', '변동 없음')}
-                    className="flex-shrink-0 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 
-                               font-semibold hover:bg-slate-200 transition-colors border-2 border-transparent"
-                  >
-                    변동 없음
-                  </button>
                 </div>
-              </div>
-
-              {/* 재고 */}
-              <div>
-                <label className="block text-base font-bold text-slate-700 mb-2">재고 현황</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="예: 약 2주 됨, 충분"
-                    value={formData[item.id]?.stock_status || ''}
-                    onChange={(e) => handleInputChange(item.id, 'stock_status', e.target.value)}
-                    className="flex-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
-                               focus:border-blue-500 focus:ring-2 focus:ring-blue-100 
-                               outline-none transition-all placeholder:text-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange(item.id, 'stock_status', '변동 없음')}
-                    className="flex-shrink-0 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 
-                               font-semibold hover:bg-slate-200 transition-colors border-2 border-transparent"
-                  >
-                    변동 없음
-                  </button>
-                </div>
-              </div>
-
-              {/* 수급 */}
-              <div>
-                <label className="block text-base font-bold text-slate-700 mb-2">수급 현황</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="예: 원활, 부족"
-                    value={formData[item.id]?.supply_status || ''}
-                    onChange={(e) => handleInputChange(item.id, 'supply_status', e.target.value)}
-                    className="flex-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
-                               focus:border-blue-500 focus:ring-2 focus:ring-blue-100 
-                               outline-none transition-all placeholder:text-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange(item.id, 'supply_status', '변동 없음')}
-                    className="flex-shrink-0 px-4 py-3 rounded-xl bg-slate-100 text-slate-600 
-                               font-semibold hover:bg-slate-200 transition-colors border-2 border-transparent"
-                  >
-                    변동 없음
-                  </button>
-                </div>
-              </div>
+              ))}
 
             </div>
           </div>

@@ -88,8 +88,8 @@ export default function AdminPage() {
     // CSV 헤더 (국토부 양식)
     const headers = [
       '보고일자', '업체명', '사업자번호', '담당자',
-      '품목명', '규격', '입고가동향', '판매가동향',
-      '재고현황', '수급', '입력상태'
+      '품목명', '규격', '전쟁전(26.2월)', '전쟁후(26.3월)',
+      '4월중순', '4월말', '오늘기준', '입력상태'
     ]
 
     const rows = []
@@ -104,10 +104,11 @@ export default function AdminPage() {
           r.survey_vendors?.manager_name || '',
           r.survey_items?.item_name || '',
           r.survey_items?.item_spec || '',
-          r.price_in_trend || '',
-          r.price_out_trend || '',
-          r.stock_status || '',
-          r.supply_status || '',
+          r.price_pre_war || '',
+          r.price_post_war || '',
+          r.price_mid_april || '',
+          r.price_end_april || '',
+          r.price_today || '',
           '입력완료',
         ])
       })
@@ -119,14 +120,14 @@ export default function AdminPage() {
       if (activeItems.length === 0) {
         rows.push([
           selectedDate, vendor.vendor_name, vendor.biz_number || '',
-          vendor.manager_name || '', '', '', '', '', '', '', '미입력',
+          vendor.manager_name || '', '', '', '', '', '', '', '', '미입력',
         ])
       } else {
         activeItems.forEach(item => {
           rows.push([
             selectedDate, vendor.vendor_name, vendor.biz_number || '',
             vendor.manager_name || '', item.item_name || '', item.item_spec || '',
-            '', '', '', '', '미입력',
+            '', '', '', '', '', '미입력',
           ])
         })
       }
@@ -221,10 +222,11 @@ export default function AdminPage() {
       const itemName = r.survey_items?.item_name || '-'
       const spec = r.survey_items?.item_spec ? ` (${r.survey_items.item_spec})` : ''
       text += `▶ ${i + 1}. ${itemName}${spec}\n`
-      text += `   • 입고가 동향: ${r.price_in_trend || '-'}\n`
-      text += `   • 판매가 동향: ${r.price_out_trend || '-'}\n`
-      text += `   • 재고 현황: ${r.stock_status || '-'}\n`
-      text += `   • 수급: ${r.supply_status || '-'}\n\n`
+      text += `   • 전쟁 전(26.2월): ${r.price_pre_war || '-'}\n`
+      text += `   • 전쟁 후(26.3월): ${r.price_post_war || '-'}\n`
+      text += `   • 4월 중순 기준: ${r.price_mid_april || '-'}\n`
+      text += `   • 4월 말 기준: ${r.price_end_april || '-'}\n`
+      text += `   • 오늘 기준: ${r.price_today || '-'}\n\n`
     })
 
     return text.trim()
@@ -829,31 +831,19 @@ export default function AdminPage() {
                           </span>
                         )}
                       </p>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-slate-400 font-medium">입고가 동향</span>
-                          <span className="text-slate-700">{r.price_in_trend || '-'}</span>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-slate-400 font-medium">판매가 동향</span>
-                          <span className="text-slate-700">{r.price_out_trend || '-'}</span>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-slate-400 font-medium">재고 현황</span>
-                          <span className="text-slate-700">{r.stock_status || '-'}</span>
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-slate-400 font-medium">수급</span>
-                          <span className={`inline-block w-fit mx-auto px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                            r.supply_status === '원활'
-                              ? 'bg-green-100 text-green-700'
-                              : r.supply_status === '부족'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {r.supply_status}
-                          </span>
-                        </div>
+                      <div className="flex flex-col gap-1.5 text-sm">
+                        {[
+                          { label: '전쟁 전(26.2월)', value: r.price_pre_war },
+                          { label: '전쟁 후(26.3월)', value: r.price_post_war },
+                          { label: '4월 중순 기준',         value: r.price_mid_april },
+                          { label: '4월 말 기준',           value: r.price_end_april },
+                          { label: '오늘 기준',         value: r.price_today },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex justify-between gap-2">
+                            <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{label}</span>
+                            <span className="text-slate-700 text-right">{value || '-'}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -864,17 +854,22 @@ export default function AdminPage() {
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="px-4 py-3 text-sm font-semibold text-slate-600">품목</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-slate-600">입고가 동향</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-slate-600">판매가 동향</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-slate-600">재고 현황</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 text-center">수급</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap">품목</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">
+                          전쟁 전<br /><span className="font-normal text-xs text-slate-400">(26.2월)</span>
+                        </th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">
+                          전쟁 후<br /><span className="font-normal text-xs text-slate-400">(26.3월)</span>
+                        </th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 중순 기준</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 말 기준</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">오늘 기준</th>
                       </tr>
                     </thead>
                     <tbody>
                       {group.items.map(r => (
                         <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 font-medium text-slate-800">
+                          <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
                             {r.survey_items?.item_name || '-'}
                             {r.survey_items?.item_spec && (
                               <span className="text-slate-400 text-sm ml-1">
@@ -882,25 +877,11 @@ export default function AdminPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {r.price_in_trend || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {r.price_out_trend || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {r.stock_status || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${r.supply_status === '원활'
-                                ? 'bg-green-100 text-green-700'
-                                : r.supply_status === '부족'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                              {r.supply_status}
-                            </span>
-                          </td>
+                          <td className="px-4 py-3 text-slate-700 text-center">{r.price_pre_war || '-'}</td>
+                          <td className="px-4 py-3 text-slate-700 text-center">{r.price_post_war || '-'}</td>
+                          <td className="px-4 py-3 text-slate-700 text-center">{r.price_mid_april || '-'}</td>
+                          <td className="px-4 py-3 text-slate-700 text-center">{r.price_end_april || '-'}</td>
+                          <td className="px-4 py-3 text-slate-700 text-center">{r.price_today || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
