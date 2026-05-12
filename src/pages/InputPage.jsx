@@ -5,22 +5,46 @@ import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Send, Building2, AlertCircle, CheckCircle2, Loader2, Info, ExternalLink } from 'lucide-react'
 
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 기준`
+}
+
+function getLocalDateStr(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+// 가장 최근 지난 금요일 날짜 반환 (오늘이 금요일이면 7일 전)
+function getPreviousFriday(todayStr) {
+  const d = new Date(todayStr + 'T00:00:00')
+  const daysBack = ((d.getDay() - 5 + 7) % 7) || 7
+  d.setDate(d.getDate() - daysBack)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export default function InputPage() {
-  // URL에서 ?key= 파라미터를 읽음
   const [searchParams] = useSearchParams()
   const secretKey = searchParams.get('key')
 
-  // 상태(state) 관리
-  const [vendor, setVendor] = useState(null)       // 업체 정보
-  const [items, setItems] = useState([])            // 품목 목록
-  const [formData, setFormData] = useState({})       // 입력 데이터
-  const [loading, setLoading] = useState(true)       // 로딩 중 여부
-  const [submitting, setSubmitting] = useState(false) // 제출 중 여부
-  const [message, setMessage] = useState(null)       // 성공/에러 메시지
-  const [hasTodayData, setHasTodayData] = useState(false) // 오늘 데이터가 이미 있는지 여부
-  const [isFinished, setIsFinished] = useState(false) // 제출 완료 후 최종 종료 화면 여부
+  const [vendor, setVendor] = useState(null)
+  const [items, setItems] = useState([])
+  const [formData, setFormData] = useState({})
+  const [latestFixedValues, setLatestFixedValues] = useState({})
+  const [historicalWeeklyPrices, setHistoricalWeeklyPrices] = useState({})
+  const [catchupDate, setCatchupDate] = useState(null)   // 최초 업체용 이전 주 날짜
+  const [catchupData, setCatchupData] = useState({})     // { [itemId]: string }
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState(null)
+  const [hasTodayData, setHasTodayData] = useState(false)
+  const [isFinished, setIsFinished] = useState(false)
 
-  // 페이지 로드 시 업체 정보와 품목 불러오기
   useEffect(() => {
     if (!secretKey) {
       setLoading(false)
@@ -29,12 +53,10 @@ export default function InputPage() {
     fetchVendorData()
   }, [secretKey])
 
-  // Supabase에서 업체 + 품목 데이터 가져오기
   async function fetchVendorData() {
     try {
       setLoading(true)
 
-      // 1) secret_key로 업체 찾기
       const { data: vendorData, error: vendorError } = await supabase
         .from('survey_vendors')
         .select('*')
@@ -49,7 +71,6 @@ export default function InputPage() {
 
       setVendor(vendorData)
 
-      // 2) 해당 업체의 품목 목록 가져오기 (is_active가 true인 것만)
       const { data: itemsData, error: itemsError } = await supabase
         .from('survey_items')
         .select('*')
@@ -60,36 +81,79 @@ export default function InputPage() {
       if (itemsError) throw itemsError
       setItems(itemsData || [])
 
-      // 3) 오늘 데이터가 이미 있는지 확인하여 자동 로드
-      const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-      const { data: todayReports, error: reportsError } = await supabase
+      const today = getLocalDateStr()
+
+      // 이 업체의 전체 리포트를 날짜 오름차순으로 가져옴
+      const { data: allReports, error: reportsError } = await supabase
         .from('survey_daily_reports')
         .select('*')
         .eq('vendor_id', vendorData.id)
-        .eq('report_date', today)
+        .order('report_date', { ascending: true })
 
       if (reportsError) throw reportsError
 
-      let loadedToday = false
+      const newLatestFixed = {}
+      const newHistoricalWeekly = {}
       const initialData = {}
+      let loadedToday = false
 
-      ;(itemsData || []).forEach(item => {
-        // 이 품목의 오늘 보고 데이터 확인
-        const todayReport = todayReports?.find(r => r.item_id === item.id)
+      for (const item of itemsData || []) {
+        const itemReports = (allReports || []).filter(r => r.item_id === item.id)
+        const pastReports = itemReports.filter(r => r.report_date !== today)
+        const todayReport = itemReports.find(r => r.report_date === today)
+        const latestPastReport = pastReports[pastReports.length - 1] ?? null
 
-        if (todayReport) {
-          loadedToday = true
+        // 과거 리포트가 있으면 고정 4개 값은 최신 과거에서 읽기 전용으로 표시
+        newLatestFixed[item.id] = latestPastReport
+          ? {
+              price_pre_war: latestPastReport.price_pre_war,
+              price_post_war: latestPastReport.price_post_war,
+              price_mid_april: latestPastReport.price_mid_april,
+              price_end_april: latestPastReport.price_end_april,
+            }
+          : null
+
+        // 과거 주별 price_today 목록 (날짜 라벨 포함)
+        newHistoricalWeekly[item.id] = pastReports.map(r => ({
+          date: r.report_date,
+          label: formatDateLabel(r.report_date),
+          value: r.price_today,
+        }))
+
+        if (latestPastReport) {
+          // 과거 데이터 존재 → 오늘 price_today만 입력
+          initialData[item.id] = {
+            price_today: todayReport?.price_today ?? '',
+          }
+        } else {
+          // 최초 입력 → 5개 모두 입력 가능
+          initialData[item.id] = {
+            price_pre_war: todayReport?.price_pre_war ?? '',
+            price_post_war: todayReport?.price_post_war ?? '',
+            price_mid_april: todayReport?.price_mid_april ?? '',
+            price_end_april: todayReport?.price_end_april ?? '',
+            price_today: todayReport?.price_today ?? '',
+          }
         }
 
-        initialData[item.id] = {
-          price_pre_war: todayReport ? todayReport.price_pre_war : '',
-          price_post_war: todayReport ? todayReport.price_post_war : '',
-          price_mid_april: todayReport ? todayReport.price_mid_april : '',
-          price_end_april: todayReport ? todayReport.price_end_april : '',
-          price_today: todayReport ? todayReport.price_today : '',
-        }
-      })
+        if (todayReport) loadedToday = true
+      }
 
+      // 과거 데이터가 전혀 없는 업체(최초) → 이전 주 금요일 catchup 슬롯 추가
+      const isFirstTimeVendor = (allReports || []).filter(r => r.report_date !== today).length === 0
+      if (isFirstTimeVendor) {
+        const prevFriday = getPreviousFriday(today)
+        setCatchupDate(prevFriday)
+        const initCatchup = {}
+        ;(itemsData || []).forEach(item => { initCatchup[item.id] = '' })
+        setCatchupData(initCatchup)
+      } else {
+        setCatchupDate(null)
+        setCatchupData({})
+      }
+
+      setLatestFixedValues(newLatestFixed)
+      setHistoricalWeeklyPrices(newHistoricalWeekly)
       setFormData(initialData)
       setHasTodayData(loadedToday)
 
@@ -101,7 +165,6 @@ export default function InputPage() {
     }
   }
 
-  // [제출] 버튼 → 오늘 날짜로 survey_daily_reports에 저장 (이미 있으면 UPDATE)
   async function handleSubmit(e) {
     e.preventDefault()
     if (!vendor) return
@@ -109,37 +172,53 @@ export default function InputPage() {
     setMessage(null)
 
     try {
-      const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+      const today = getLocalDateStr()
 
-      // 각 품목별로 레코드 생성
-      const records = items.map(item => ({
-        vendor_id: vendor.id,
-        item_id: item.id,
-        report_date: today,
-        price_pre_war: formData[item.id]?.price_pre_war || '',
-        price_post_war: formData[item.id]?.price_post_war || '',
-        price_mid_april: formData[item.id]?.price_mid_april || '',
-        price_end_april: formData[item.id]?.price_end_april || '',
-        price_today: formData[item.id]?.price_today || '',
-      }))
+      const records = items.map(item => {
+        const fixed = latestFixedValues[item.id]
+        return {
+          vendor_id: vendor.id,
+          item_id: item.id,
+          report_date: today,
+          // 과거 데이터가 있으면 고정값 복사, 없으면(최초) 폼에서 읽음
+          price_pre_war: fixed?.price_pre_war ?? formData[item.id]?.price_pre_war ?? '',
+          price_post_war: fixed?.price_post_war ?? formData[item.id]?.price_post_war ?? '',
+          price_mid_april: fixed?.price_mid_april ?? formData[item.id]?.price_mid_april ?? '',
+          price_end_april: fixed?.price_end_april ?? formData[item.id]?.price_end_april ?? '',
+          price_today: formData[item.id]?.price_today ?? '',
+        }
+      })
 
-      // upsert: vendor_id + item_id + report_date 조건이 겹치면 업데이트 수행
       const { error } = await supabase
         .from('survey_daily_reports')
         .upsert(records, { onConflict: 'vendor_id,item_id,report_date' })
 
       if (error) throw error
 
+      // 최초 업체: 이전 주 catchup 레코드도 함께 저장
+      if (catchupDate) {
+        const catchupRecords = items.map(item => ({
+          vendor_id: vendor.id,
+          item_id: item.id,
+          report_date: catchupDate,
+          price_pre_war: formData[item.id]?.price_pre_war ?? '',
+          price_post_war: formData[item.id]?.price_post_war ?? '',
+          price_mid_april: formData[item.id]?.price_mid_april ?? '',
+          price_end_april: formData[item.id]?.price_end_april ?? '',
+          price_today: catchupData[item.id] ?? '',
+        }))
+        const { error: catchupError } = await supabase
+          .from('survey_daily_reports')
+          .upsert(catchupRecords, { onConflict: 'vendor_id,item_id,report_date' })
+        if (catchupError) throw catchupError
+      }
+
       setHasTodayData(true)
-      // 폼과 스크롤을 유지한 채 성공 메시지 표시
       setMessage({ type: 'success', text: '보고가 정상적으로 완료되었습니다. 감사합니다.' })
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
-      // 3초 후 최종 상태로 전환
       setTimeout(() => {
-        setIsFinished(true) // 최종 화면(닫기 버튼 있는 화면)으로 렌더링 전환
-
-        // 카카오톡 인앱 브라우저에서만 닫기 시도 (일반 브라우저는 완료 화면 표시)
+        setIsFinished(true)
         if (/KAKAOTALK/i.test(navigator.userAgent)) {
           setTimeout(() => { window.location.href = 'kakaotalk://inappbrowser/close' }, 100)
         }
@@ -149,12 +228,10 @@ export default function InputPage() {
       console.error(err)
     } finally {
       setSubmitting(false)
-      // 5초 후 메시지 자동 제거
       setTimeout(() => setMessage(null), 5000)
     }
   }
 
-  // 입력값 변경 처리 (텍스트 변경 또는 버튼 클릭)
   function handleInputChange(itemId, field, value) {
     setFormData(prev => ({
       ...prev,
@@ -165,17 +242,18 @@ export default function InputPage() {
     }))
   }
 
-  // '닫기' 버튼을 눌렀을 때의 종료 함수
+  function handleCatchupChange(itemId, value) {
+    setCatchupData(prev => ({ ...prev, [itemId]: value }))
+  }
+
   function handleForceClose() {
     if (/KAKAOTALK/i.test(navigator.userAgent)) {
       window.location.href = 'kakaotalk://inappbrowser/close'
     }
-    // 일반 브라우저: 브라우저 정책상 스크립트로 탭 닫기 불가 → 사용자가 직접 닫도록 안내
   }
 
   // --- 화면 렌더링 ---
 
-  // 모든 작업이 끝나고 '확률적으로 창이 안 닫혔을 때' 보여주는 최종 화면
   if (isFinished) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
@@ -265,7 +343,7 @@ export default function InputPage() {
         </div>
       </header>
 
-      {/* 날짜 표시 공간 */}
+      {/* 날짜 표시 */}
       <div className="max-w-2xl mx-auto px-4 pt-6">
         <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl px-4 py-4 text-center">
           <p className="text-blue-800 font-bold text-lg">
@@ -274,7 +352,6 @@ export default function InputPage() {
         </div>
       </div>
 
-      {/* 자동 로드 안내 문구 (제출 완료 후 창이 닫히기 전에는 숨김 처리) */}
       {hasTodayData && message?.type !== 'success' && (
         <div className="max-w-2xl mx-auto px-4 pt-4">
           <div className="bg-slate-100 border border-slate-300 rounded-xl px-5 py-3 flex items-center gap-2 text-slate-700">
@@ -286,7 +363,6 @@ export default function InputPage() {
         </div>
       )}
 
-      {/* 알림 메시지 (성공/에러) */}
       {message && (
         <div className="max-w-2xl mx-auto px-4 pt-4">
           <div className={`rounded-xl px-5 py-4 flex items-center gap-3 shadow-md ${
@@ -306,51 +382,109 @@ export default function InputPage() {
       {/* 입력 폼 */}
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
-        {/* 품목별 입력 카드 */}
-        {items.map((item, index) => (
-          <div
-            key={item.id}
-            className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden"
-          >
-            {/* 품목 헤더 */}
-            <div className="bg-slate-800 text-white px-5 py-4">
-              <span className="font-bold text-xl">
-                품목{index + 1}. <span className="text-yellow-300">{item.item_name}</span>
-              </span>
-              {item.item_spec && (
-                <span className="ml-2 text-slate-300 text-sm">({item.item_spec})</span>
-              )}
-            </div>
+        {items.map((item, index) => {
+          const fixed = latestFixedValues[item.id]
+          const isFirstTime = fixed === null
+          const weeklyHistory = historicalWeeklyPrices[item.id] ?? []
 
-            {/* 입력 필드 (시계열 5개) */}
-            <div className="p-5 flex flex-col gap-5">
+          return (
+            <div
+              key={item.id}
+              className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden"
+            >
+              {/* 품목 헤더 */}
+              <div className="bg-slate-800 text-white px-5 py-4">
+                <span className="font-bold text-xl">
+                  품목{index + 1}. <span className="text-yellow-300">{item.item_name}</span>
+                </span>
+                {item.item_spec && (
+                  <span className="ml-2 text-slate-300 text-sm">({item.item_spec})</span>
+                )}
+              </div>
 
-              {[
-                { label: '전쟁 전 (26.2월)', field: 'price_pre_war',  placeholder: '가격 또는 기준 지수 100 입력' },
-                { label: '전쟁 후 (26.3월)', field: 'price_post_war', placeholder: '전쟁 전 대비 15% 상승' },
-                { label: '4월 중순 기준',      field: 'price_mid_april', placeholder: '전쟁 전 대비 15% 상승' },
-                { label: '4월 말 기준',        field: 'price_end_april', placeholder: '전쟁 전 대비 15% 상승' },
-                { label: '오늘 기준',          field: 'price_today',    placeholder: '전쟁 전 대비 15% 상승' },
-              ].map(({ label, field, placeholder }) => (
-                <div key={field}>
-                  <label className="block text-base font-bold text-slate-700 mb-2">{label}</label>
+              <div className="p-5 flex flex-col gap-5">
+
+                {/* 고정 4개 슬롯 */}
+                {[
+                  { label: '전쟁 전 (26.2월)', field: 'price_pre_war',  placeholder: '가격 또는 기준 지수 100 입력' },
+                  { label: '전쟁 후 (26.3월)', field: 'price_post_war', placeholder: '전쟁 전 대비 15% 상승' },
+                  { label: '4월 중순 기준',    field: 'price_mid_april', placeholder: '전쟁 전 대비 15% 상승' },
+                  { label: '4월 말 기준',      field: 'price_end_april', placeholder: '전쟁 전 대비 15% 상승' },
+                ].map(({ label, field, placeholder }) => {
+                  if (!isFirstTime) {
+                    return (
+                      <div key={field} className="flex items-center justify-between">
+                        <span className="text-base font-bold text-slate-500">{label}</span>
+                        <span className="text-base text-slate-600">{fixed[field] || '-'}</span>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div key={field}>
+                      <label className="block text-base font-bold text-slate-700 mb-2">{label}</label>
+                      <input
+                        type="text"
+                        placeholder={placeholder}
+                        value={formData[item.id]?.[field] ?? ''}
+                        onChange={(e) => handleInputChange(item.id, field, e.target.value)}
+                        className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
+                                   focus:border-blue-500 focus:ring-2 focus:ring-blue-100
+                                   outline-none transition-all placeholder:text-slate-400"
+                      />
+                    </div>
+                  )
+                })}
+
+                {/* 과거 주별 슬롯 (텍스트 표시) */}
+                {weeklyHistory.map(entry => (
+                  <div key={entry.date} className="flex items-center justify-between">
+                    <span className="text-base font-bold text-slate-500">{entry.label}</span>
+                    <span className="text-base text-slate-600">{entry.value || '-'}</span>
+                  </div>
+                ))}
+
+                {/* 최초 업체: 이전 주 금요일 catchup 입력 슬롯 */}
+                {isFirstTime && catchupDate && (
+                  <div>
+                    <label className="block text-base font-bold text-slate-700 mb-2">
+                      {formatDateLabel(catchupDate)}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="전쟁 전 대비 15% 상승"
+                      value={catchupData[item.id] ?? ''}
+                      onChange={(e) => handleCatchupChange(item.id, e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
+                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-100
+                                 outline-none transition-all placeholder:text-slate-400"
+                    />
+                  </div>
+                )}
+
+                {/* 과거 데이터와 오늘 입력 사이 구분선 */}
+                {!isFirstTime && (
+                  <hr className="border-slate-200" />
+                )}
+
+                {/* 오늘 기준 (입력) */}
+                <div>
+                  <label className="block text-base font-bold text-blue-700 mb-2">오늘 기준</label>
                   <input
                     type="text"
-                    placeholder={placeholder}
-                    value={formData[item.id]?.[field] || ''}
-                    onChange={(e) => handleInputChange(item.id, field, e.target.value)}
-                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg
+                    placeholder="전쟁 전 대비 15% 상승"
+                    value={formData[item.id]?.price_today ?? ''}
+                    onChange={(e) => handleInputChange(item.id, 'price_today', e.target.value)}
+                    className="w-full border-2 border-blue-300 rounded-xl px-4 py-3 text-lg
                                focus:border-blue-500 focus:ring-2 focus:ring-blue-100
                                outline-none transition-all placeholder:text-slate-400"
                   />
                 </div>
-              ))}
 
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
-        {/* 품목이 없는 경우 */}
         {items.length === 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
             <p className="text-slate-400 text-lg">등록된 품목이 없습니다.</p>
@@ -358,12 +492,11 @@ export default function InputPage() {
           </div>
         )}
 
-        {/* [제출] 버튼 */}
         {items.length > 0 && (
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-blue-600 text-white rounded-2xl 
+            className="w-full bg-blue-600 text-white rounded-2xl
                        py-6 px-6 font-bold text-2xl shadow-xl shadow-blue-500/30
                        hover:bg-blue-700 hover:-translate-y-1
                        transition-all duration-200 flex items-center justify-center gap-3
@@ -379,7 +512,6 @@ export default function InputPage() {
         )}
       </form>
 
-      {/* 하단 여백 */}
       <div className="h-12" />
     </div>
   )
