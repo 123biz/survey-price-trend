@@ -409,7 +409,7 @@ export default function InputPage() {
                   { label: '전쟁 전 (26.2월)', field: 'price_pre_war',  placeholder: '가격 또는 기준 지수 100 입력' },
                   { label: '전쟁 후 (26.3월)', field: 'price_post_war', placeholder: '전쟁 전 대비 15% 상승' },
                   { label: '4월 중순 기준',    field: 'price_mid_april', placeholder: '전쟁 전 대비 15% 상승' },
-                  { label: '4월 말 기준',      field: 'price_end_april', placeholder: '전쟁 전 대비 15% 상승' },
+                  { label: '4월 말일 기준',     field: 'price_end_april', placeholder: '전쟁 전 대비 15% 상승' },
                 ].map(({ label, field, placeholder }) => {
                   if (!isFirstTime) {
                     return (
