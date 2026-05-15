@@ -241,7 +241,7 @@ export default function AdminPage() {
       text += `   • 전쟁 전(26.2월): ${r.price_pre_war || '-'}\n`
       text += `   • 전쟁 후(26.3월): ${r.price_post_war || '-'}\n`
       text += `   • 4월 중순 기준: ${r.price_mid_april || '-'}\n`
-      text += `   • 4월 말 기준: ${r.price_end_april || '-'}\n`
+      text += `   • 4월 말일 기준: ${r.price_end_april || '-'}\n`
       pastDates.forEach(date => {
         const hist = historicalReports.find(h =>
           h.report_date === date && h.item_id === r.item_id && h.vendor_id === r.vendor_id
@@ -861,7 +861,7 @@ export default function AdminPage() {
                           { label: '전쟁 전(26.2월)', value: r.price_pre_war },
                           { label: '전쟁 후(26.3월)', value: r.price_post_war },
                           { label: '4월 중순 기준',   value: r.price_mid_april },
-                          { label: '4월 말 기준',     value: r.price_end_april },
+                          { label: '4월 말일 기준',   value: r.price_end_april },
                           ...pastDates.map(date => ({
                             label: formatDateLabel(date),
                             value: historicalReports.find(h =>
@@ -895,7 +895,7 @@ export default function AdminPage() {
                           전쟁 후<br /><span className="font-normal text-xs text-slate-400">(26.3월)</span>
                         </th>
                         <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 중순 기준</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 말 기준</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 말일 기준</th>
                         {pastDates.map(date => (
                           <th key={date} className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">
                             {formatDateLabel(date)}
