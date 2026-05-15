@@ -8,13 +8,19 @@ import {
   CheckCircle2, AlertTriangle, Building2, MessageCircle
 } from 'lucide-react'
 
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 기준`
+}
+
 export default function AdminPage() {
   // 오늘 날짜를 항상 서울(KST, UTC+9) 기준으로 설정
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
   const today = kstNow.toISOString().split('T')[0]
 
   const [selectedDate, setSelectedDate] = useState(today)  // 선택한 날짜
-  const [reports, setReports] = useState([])                // 보고 데이터
+  const [reports, setReports] = useState([])                // 보고 데이터 (선택 날짜)
+  const [historicalReports, setHistoricalReports] = useState([]) // 과거 주별 보고 데이터
   const [allVendors, setAllVendors] = useState([])          // 전체 업체 목록 (미입력 비교용)
   const [loading, setLoading] = useState(false)             // 로딩 상태
   const [error, setError] = useState(null)                  // 에러 메시지
@@ -59,18 +65,28 @@ export default function AdminPage() {
     setError(null)
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('survey_daily_reports')
-        .select(`
-          *,
-          survey_vendors ( id, vendor_name, biz_number, manager_name, manager_phone, secret_key, memo ),
-          survey_items ( item_name, item_spec )
-        `)
-        .eq('report_date', selectedDate)
-        .order('created_at', { ascending: true })
+      const selectFields = `
+        *,
+        survey_vendors ( id, vendor_name, biz_number, manager_name, manager_phone, secret_key, memo ),
+        survey_items ( item_name, item_spec )
+      `
+      const [{ data, error: fetchError }, { data: histData }] = await Promise.all([
+        supabase
+          .from('survey_daily_reports')
+          .select(selectFields)
+          .eq('report_date', selectedDate)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('survey_daily_reports')
+          .select(selectFields)
+          .lt('report_date', selectedDate)
+          .gte('report_date', '2026-04-01')
+          .order('report_date', { ascending: true }),
+      ])
 
       if (fetchError) throw fetchError
       setReports(data || [])
+      setHistoricalReports(histData || [])
     } catch (err) {
       setError('데이터를 불러오는 중 오류가 발생했습니다.')
       console.error(err)
@@ -226,6 +242,12 @@ export default function AdminPage() {
       text += `   • 전쟁 후(26.3월): ${r.price_post_war || '-'}\n`
       text += `   • 4월 중순 기준: ${r.price_mid_april || '-'}\n`
       text += `   • 4월 말 기준: ${r.price_end_april || '-'}\n`
+      pastDates.forEach(date => {
+        const hist = historicalReports.find(h =>
+          h.report_date === date && h.item_id === r.item_id && h.vendor_id === r.vendor_id
+        )
+        text += `   • ${formatDateLabel(date)}: ${hist?.price_today || '-'}\n`
+      })
       text += `   • 오늘 기준: ${r.price_today || '-'}\n\n`
     })
 
@@ -472,6 +494,9 @@ export default function AdminPage() {
 
   const grouped = groupByVendor()
   const missingVendors = getMissingVendors()
+
+  // 과거 주별 날짜 목록 (선택 날짜 이전, 오름차순)
+  const pastDates = [...new Set(historicalReports.map(r => r.report_date))].sort()
   const reportedCount = Object.keys(grouped).length
   const totalVendorCount = allVendors.filter(v => !MONITORING_ONLY_VENDORS.includes(v.vendor_name)).length
   const submissionRate = totalVendorCount > 0
@@ -835,9 +860,17 @@ export default function AdminPage() {
                         {[
                           { label: '전쟁 전(26.2월)', value: r.price_pre_war },
                           { label: '전쟁 후(26.3월)', value: r.price_post_war },
-                          { label: '4월 중순 기준',         value: r.price_mid_april },
-                          { label: '4월 말 기준',           value: r.price_end_april },
-                          { label: '오늘 기준',         value: r.price_today },
+                          { label: '4월 중순 기준',   value: r.price_mid_april },
+                          { label: '4월 말 기준',     value: r.price_end_april },
+                          ...pastDates.map(date => ({
+                            label: formatDateLabel(date),
+                            value: historicalReports.find(h =>
+                              h.report_date === date &&
+                              h.item_id === r.item_id &&
+                              h.vendor_id === r.vendor_id
+                            )?.price_today,
+                          })),
+                          { label: '오늘 기준',       value: r.price_today },
                         ].map(({ label, value }) => (
                           <div key={label} className="flex justify-between gap-2">
                             <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{label}</span>
@@ -863,6 +896,11 @@ export default function AdminPage() {
                         </th>
                         <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 중순 기준</th>
                         <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">4월 말 기준</th>
+                        {pastDates.map(date => (
+                          <th key={date} className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">
+                            {formatDateLabel(date)}
+                          </th>
+                        ))}
                         <th className="px-4 py-3 text-sm font-semibold text-slate-600 whitespace-nowrap text-center">오늘 기준</th>
                       </tr>
                     </thead>
@@ -881,6 +919,18 @@ export default function AdminPage() {
                           <td className="px-4 py-3 text-slate-700 text-center">{r.price_post_war || '-'}</td>
                           <td className="px-4 py-3 text-slate-700 text-center">{r.price_mid_april || '-'}</td>
                           <td className="px-4 py-3 text-slate-700 text-center">{r.price_end_april || '-'}</td>
+                          {pastDates.map(date => {
+                            const hist = historicalReports.find(h =>
+                              h.report_date === date &&
+                              h.item_id === r.item_id &&
+                              h.vendor_id === r.vendor_id
+                            )
+                            return (
+                              <td key={date} className="px-4 py-3 text-slate-700 text-center">
+                                {hist?.price_today || '-'}
+                              </td>
+                            )
+                          })}
                           <td className="px-4 py-3 text-slate-700 text-center">{r.price_today || '-'}</td>
                         </tr>
                       ))}
